@@ -18,20 +18,19 @@ class component {
     this.documentWidth = window.innerWidth || document.body.clientWidth;
     this.documentHeight = window.innerHeight || document.body.clientHeight;
 
-    // this.documentWidth = 250;
-    // this.documentHeight = 250;
+    this.documentWidth = 20;
+    this.documentHeight = 20;
 
     this.evolution = 0;
 
+    this.colorNames = ["red", "blue", "green"];
 
-    this.canvasElement = document.createElement('canvas');
-    this.canvasElement.setAttribute("width", this.documentWidth);
-    this.canvasElement.setAttribute("height", this.documentHeight);
-    this.canvasElement.setAttribute("id", "canvas");
-    document.body.appendChild(this.canvasElement);
-    this.ctx = this.canvasElement.getContext('2d');
-    this.colorNamePool = ["AliceBlue","AntiqueWhite","Aqua","Aquamarine","Azure","Beige","Bisque","Black","BlanchedAlmond","Blue","BlueViolet","Brown","BurlyWood","CadetBlue","Chartreuse","Chocolate","Coral","CornflowerBlue","Cornsilk","Crimson","Cyan","DarkBlue","DarkCyan","DarkGoldenRod","DarkGray","DarkGrey","DarkGreen","DarkKhaki","DarkMagenta","DarkOliveGreen","Darkorange","DarkOrchid","DarkRed","DarkSalmon","DarkSeaGreen","DarkSlateBlue","DarkSlateGray","DarkSlateGrey","DarkTurquoise","DarkViolet","DeepPink","DeepSkyBlue","DimGray","DimGrey","DodgerBlue","FireBrick","FloralWhite","ForestGreen","Fuchsia","Gainsboro","GhostWhite","Gold","GoldenRod","Gray","Grey","Green","GreenYellow","HoneyDew","HotPink","IndianRed","Indigo","Ivory","Khaki","Lavender","LavenderBlush","LawnGreen","LemonChiffon","LightBlue","LightCoral","LightCyan","LightGoldenRodYellow","LightGray","LightGrey","LightGreen","LightPink","LightSalmon","LightSeaGreen","LightSkyBlue","LightSlateGray","LightSlateGrey","LightSteelBlue","LightYellow","Lime","LimeGreen","Linen","Magenta","Maroon","MediumAquaMarine","MediumBlue","MediumOrchid","MediumPurple","MediumSeaGreen","MediumSlateBlue","MediumSpringGreen","MediumTurquoise","MediumVioletRed","MidnightBlue","MintCream","MistyRose","Moccasin","NavajoWhite","Navy","OldLace","Olive","OliveDrab","Orange","OrangeRed","Orchid","PaleGoldenRod","PaleGreen","PaleTurquoise","PaleVioletRed","PapayaWhip","PeachPuff","Peru","Pink","Plum","PowderBlue","Purple","Red","RosyBrown","RoyalBlue","SaddleBrown","Salmon","SandyBrown","SeaGreen","SeaShell","Sienna","Silver","SkyBlue","SlateBlue","SlateGray","SlateGrey","Snow","SpringGreen","SteelBlue","Tan","Teal","Thistle","Tomato","Turquoise","Violet","Wheat","White","WhiteSmoke","Yellow","YellowGreen"];
-    this.colorNames = ["purple","Orchid","green","PaleGreen"];
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+    this.renderer = new THREE.WebGLRenderer();
+    this.renderer.setSize( window.innerWidth, window.innerHeight );
+    document.body.appendChild( this.renderer.domElement );
   }
 
   /**
@@ -44,7 +43,8 @@ class component {
     for (let row = 0; row < this.documentHeight; row++) {
         this.dataTable[row] = [];
         for (let column = 0; column < this.documentWidth; column++) {
-            this.dataTable[row][column] = this.getRandomColor();
+            this.dataTable[row][column] = {};
+            this.dataTable[row][column].color = this.getRandomColor();
         }
     }
 
@@ -70,14 +70,27 @@ class component {
    * @memberOf component
    */
   build() {
-
-    this.ctx.clearRect(0, 0, this.documentWidth, this.documentHeight);
-    
     for (let c = 0; c < this.dataTable.length; c++)  {
         for (let r = 0; r < this.dataTable[c].length; r++)  {
-            let cell = this.dataTable[c][r];
-            this.ctx.fillStyle = cell;
-            this.ctx.fillRect(c, r, 1, 1);
+            var cell = this.dataTable[c][r];
+            
+            cell.geometry = new THREE.BoxGeometry( 1, 1, 1 );
+            cell.material = new THREE.MeshBasicMaterial( { color: cell.color } );
+            cell.cube = new THREE.Mesh( cell.geometry, cell.material );
+            this.scene.add( cell.cube );
+            cell.cube.position.x = c * 2;
+            cell.cube.position.y = r * 2;
+
+        }
+    }
+    this.camera.position.z = 75;
+  }
+
+  update() {
+    for (let c = 0; c < this.dataTable.length; c++)  {
+        for (let r = 0; r < this.dataTable[c].length; r++)  {
+            var cell = this.dataTable[c][r];
+            cell.cube.material.color.set(cell.color);
         }
     }
   }
@@ -89,7 +102,7 @@ class component {
             var evolve = _.random(0, 10);
             var strength = _.random(1, 4);
             
-            var currentColor = this.dataTable[row][column];
+            var currentColor = this.dataTable[row][column].color;
 
             if (evolve > 9) {
 
@@ -98,17 +111,19 @@ class component {
                     switch (directionToEvolve) {
                         case 1:
                             let r = row === 0 ? 0 : row - 1;
-                            this.dataTable[r][column] = currentColor;
+                            this.dataTable[r][column].color = currentColor;
                             break;
                         case 2:
-                            this.dataTable[row][(column + 1)] = currentColor;
+                            if (_.isUndefined(this.dataTable[row][(column + 1)])) break;
+                            this.dataTable[row][(column + 1)].color = currentColor;
                             break;
                         case 3:
                             let v = row === (this.documentHeight - 1) ? (this.documentHeight - 1) : row + 1;
-                            this.dataTable[v][column] = currentColor;
+                            this.dataTable[v][column].color = currentColor;
                             break;
                         case 4:
-                            this.dataTable[row][(column - 1)] = currentColor;
+                            if (_.isUndefined(this.dataTable[row][(column - 1)])) break;
+                            this.dataTable[row][(column - 1)].color = currentColor;
                             break;
                     }
                 }
@@ -123,10 +138,53 @@ class component {
 const elm = new component();
 elm.createDataTable();
 elm.build();
-
+elm.renderer.render( elm.scene, elm.camera );
 setInterval(() => {
     window.requestAnimationFrame(() => {
         elm.evolve();
-        elm.build();
+        elm.update();
+        elm.renderer.render( elm.scene, elm.camera );
     });
-}, 10);
+}, 100);
+
+
+
+/* */
+var isDragging = false;
+var previousMousePosition = {
+    x: 0,
+    y: 0
+};
+$(elm.renderer.domElement).on('mousedown', function(e) {
+    isDragging = true;
+})
+.on('mousemove', function(e) {
+    //console.log(e);
+    var deltaMove = {
+        x: e.offsetX-previousMousePosition.x,
+        y: e.offsetY-previousMousePosition.y
+    };
+
+    if(isDragging) {
+            
+        var deltaRotationQuaternion = new three.Quaternion()
+            .setFromEuler(new three.Euler(
+                toRadians(deltaMove.y * 1),
+                toRadians(deltaMove.x * 1),
+                0,
+                'XYZ'
+            ));
+        
+        cube.quaternion.multiplyQuaternions(deltaRotationQuaternion, cube.quaternion);
+    }
+    
+    previousMousePosition = {
+        x: e.offsetX,
+        y: e.offsetY
+    };
+});
+/* */
+
+$(document).on('mouseup', function(e) {
+    isDragging = false;
+});
